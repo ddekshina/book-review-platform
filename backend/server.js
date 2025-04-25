@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const globalErrorHandler = require('./utils/globalErrorHandler');
+const AppError = require('./utils/appError');
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +48,12 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === 'development' ? err.stack : null
   });
 });
+
+app.all('*', (req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+  });
+
+app.use(globalErrorHandler);
 
 // Connect to MongoDB and start server
 const PORT = process.env.PORT || 5000;

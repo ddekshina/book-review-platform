@@ -1,62 +1,36 @@
 // backend/controllers/bookController.js
 const Book = require('../models/bookModel');
 const AppError = require('../utils/appError');
+const APIFeatures = require('../utils/apiFeatures');
 
 // Get all books with pagination and filtering
 exports.getAllBooks = async (req, res, next) => {
-  try {
-    // Build query
-    const queryObj = { ...req.query };
-    const excludedFields = ['page', 'sort', 'limit', 'fields'];
-    excludedFields.forEach(el => delete queryObj[el]);
-    
-    // Advanced filtering
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-    
-    let query = Book.find(JSON.parse(queryStr));
-    
-    // Sorting
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort('-createdAt');
+    try {
+      // Execute query with API Features
+      const features = new APIFeatures(Book.find(), req.query)
+        .filter()
+        .sort()
+        .limitFields()
+        .paginate();
+      
+      const books = await features.query;
+      
+      // Count total documents for pagination info (without pagination)
+      const countFeatures = new APIFeatures(Book.find(), req.query).filter();
+      const total = await Book.countDocuments(countFeatures.query);
+      
+      res.status(200).json({
+        status: 'success',
+        results: books.length,
+        total,
+        data: {
+          books
+        }
+      });
+    } catch (err) {
+      next(err);
     }
-    
-    // Field limiting
-    if (req.query.fields) {
-      const fields = req.query.fields.split(',').join(' ');
-      query = query.select(fields);
-    } else {
-      query = query.select('-__v');
-    }
-    
-    // Pagination
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
-    
-    query = query.skip(skip).limit(limit);
-    
-    // Execute query
-    const books = await query;
-    
-    // Count total documents for pagination info
-    const total = await Book.countDocuments(JSON.parse(queryStr));
-    
-    res.status(200).json({
-      status: 'success',
-      results: books.length,
-      total,
-      data: {
-        books
-      }
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+  };
 
 // Get a single book by ID
 exports.getBookById = async (req, res, next) => {

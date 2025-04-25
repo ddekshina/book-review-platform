@@ -79,5 +79,14 @@ bookSchema.pre('save', function(next) {
   next();
 });
 
+bookSchema.pre(/^find/, function(next) {
+    this.populate({
+      path: 'createdBy',
+      select: 'username'
+    });
+    
+    next();
+  });
+
 const Book = mongoose.model('Book', bookSchema);
 module.exports = Book;
